@@ -1,0 +1,47 @@
+# Configuración central del bot
+# Ajusta esto a tu cuenta de fondeo real (FTMO / FundedPips)
+
+account:
+  broker: "MT5"          # FTMO y FundedPips operan sobre MT5
+  login: 0                # tu login de MT5 (mejor: cárgalo desde .env, no aquí)
+  server: ""              # nombre del servidor MT5 de tu prop firm
+
+symbols:
+  - "EURUSD"
+  - "GBPUSD"
+  - "XAUUSD"
+
+timeframes:
+  # Day trading / swing, según lo decidido: menos ruido que scalping
+  primary: "H1"            # timeframe de la señal principal
+  confirmation: "H4"        # timeframe de confirmación de tendencia
+  # M15 queda disponible si luego quieres afinar el punto de entrada,
+  # pero la decisión de dirección se toma en H1/H4.
+
+risk_management:
+  # Límites de la prop firm (AJUSTA a los de tu cuenta real, estos son ejemplo FTMO/FundedPips estándar)
+  max_daily_loss_pct: 5.0
+  max_total_drawdown_pct: 10.0
+  risk_per_trade_pct: 0.5    # nunca arriesgues más del 0.5-1% por operación
+  max_open_positions: 2
+  # Buffer de seguridad: el bot se detiene ANTES de tocar el límite real
+  daily_loss_safety_buffer_pct: 1.0   # se detiene al llegar a (max_daily_loss_pct - buffer)
+
+signals:
+  indicators:
+    ema_fast: 20
+    ema_slow: 50
+    sma_trend: 200
+    volume_lookback: 20
+
+  # Umbral mínimo de confianza del modelo para generar una alerta
+  min_confidence: 0.60
+
+execution:
+  mode: "alert_only"   # "alert_only" | "semi_auto" | "auto"
+  # alert_only: solo manda alerta a Telegram, tú ejecutas manual (RECOMENDADO para empezar)
+  # semi_auto: manda alerta con botón de confirmación
+  # auto: ejecuta la orden directamente (solo activar tras validar con track record real)
+
+alerts:
+  telegram_enabled: true

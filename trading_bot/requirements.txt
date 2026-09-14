@@ -1,0 +1,11 @@
+MetaTrader5==5.0.45
+pandas==2.2.2
+numpy==1.26.4
+pandas-ta==0.3.14b0
+xgboost==2.0.3
+scikit-learn==1.4.2
+joblib==1.4.0
+python-telegram-bot==21.1.1
+python-dotenv==1.0.1
+vectorbt==0.26.2
+PyYAML==6.0.1
