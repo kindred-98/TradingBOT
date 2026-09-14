@@ -89,3 +89,48 @@ class MT5Connector:
             "margin": info.margin,
             "profit": info.profit,
         }
+
+    def get_open_positions(self) -> list[dict]:
+        """Posiciones abiertas reales vía mt5.positions_get()."""
+        if not self._connected:
+            raise RuntimeError("No conectado a MT5. Llama a connect() primero.")
+        positions = mt5.positions_get()
+        if positions is None:
+            err = mt5.last_error()
+            if err and err[0] != mt5.RES_S_OK:
+                raise RuntimeError(f"No se pudieron leer posiciones: {err}")
+            return []
+        return [
+            {
+                "ticket": int(p.ticket),
+                "symbol": p.symbol,
+                "side": "BUY" if p.type == mt5.POSITION_TYPE_BUY else "SELL",
+                "volume": float(p.volume),
+                "price_open": float(p.price_open),
+                "sl": float(p.sl),
+                "tp": float(p.tp),
+                "profit": float(p.profit),
+            }
+            for p in positions
+        ]
+
+    def get_day_opening_balance(self) -> float:
+        """
+        Balance al inicio del día local: balance actual menos el PnL
+        realizado hoy (cierres, swap, comisión). Así no se usa el balance
+        corriente, que ya incluye operaciones cerradas en la sesión.
+        """
+        if not self._connected:
+            raise RuntimeError("No conectado a MT5. Llama a connect() primero.")
+        info = mt5.account_info()
+        if info is None:
+            raise RuntimeError(f"No se pudo leer la cuenta: {mt5.last_error()}")
+
+        now = datetime.now()
+        day_start = datetime(now.year, now.month, now.day)
+        deals = mt5.history_deals_get(day_start, now)
+        realized = 0.0
+        if deals:
+            for deal in deals:
+                realized += float(deal.profit) + float(deal.swap) + float(deal.commission)
+        return round(float(info.balance) - realized, 2)

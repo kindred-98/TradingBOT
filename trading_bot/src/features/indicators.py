@@ -59,4 +59,3 @@ def _bearish_engulfing(df: pd.DataFrame) -> pd.Series:
     curr_bear = df["close"] < df["open"]
     engulf = (df["close"] < df["open"].shift(1)) & (df["open"] > df["close"].shift(1))
     return (prev_bull & curr_bear & engulf).astype(int)
-

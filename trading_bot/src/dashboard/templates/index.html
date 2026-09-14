@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TradingBOT Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="bg"></div>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo"></span>
+      <div>
+        <h1>TradingBOT Desk</h1>
+        <p id="meta-line">Cargando mesa…</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="pill" id="mode-pill">alert_only</span>
+      <span class="pill pill-ghost" id="clock">--:--:--</span>
+      <span class="status-chip" id="status-chip">conectando</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="banner" id="status-banner" hidden></section>
+
+    <section class="kpis" id="kpis"></section>
+
+    <section class="grid-2">
+      <article class="card">
+        <header class="card-head">
+          <div>
+            <h2>Risk Manager</h2>
+            <p>El bot se detiene en el buffer, no en el límite de la prop firm.</p>
+          </div>
+          <span class="hint" title="Pérdida diaria y drawdown vs halt interno y límite real">límites</span>
+        </header>
+        <div id="risk-meters"></div>
+      </article>
+      <article class="card">
+        <header class="card-head">
+          <div>
+            <h2>Equity de cuenta</h2>
+            <p>Snapshots del Risk Manager en cada ciclo de main.py.</p>
+          </div>
+        </header>
+        <div class="chart-wrap"><canvas id="chart-equity"></canvas></div>
+        <p class="empty" id="equity-empty">Aún no hay snapshots. Arranca main.py para ver el estado en vivo.</p>
+      </article>
+    </section>
+
+    <section class="grid-2">
+      <article class="card">
+        <header class="card-head">
+          <div>
+            <h2>Track record vivo</h2>
+            <p>PnL acumulado de señales cerradas (win/loss). Si no hay PnL, se usa ±1R.</p>
+          </div>
+        </header>
+        <div class="chart-wrap"><canvas id="chart-live"></canvas></div>
+        <p class="empty" id="live-empty">Sin resultados cerrados todavía. Las señales quedan en pending hasta que registres el outcome.</p>
+      </article>
+      <article class="card">
+        <header class="card-head">
+          <div>
+            <h2>Walk-forward</h2>
+            <p id="bt-subtitle">Última corrida de backtest. Equity teórica a 1R por trade.</p>
+          </div>
+          <span class="pill" id="bt-consistency">—</span>
+        </header>
+        <div class="chart-wrap chart-wrap-sm"><canvas id="chart-bt-equity"></canvas></div>
+        <div class="chart-wrap chart-wrap-sm"><canvas id="chart-bt-windows"></canvas></div>
+        <p class="empty" id="bt-empty">No hay backtest guardado. Corre: python src/backtest/run_backtest.py</p>
+      </article>
+    </section>
+
+    <section class="card">
+      <header class="card-head">
+        <div>
+          <h2>Historial de señales</h2>
+          <p>Cada alerta de main.py. pending = aún no operada / sin resultado.</p>
+        </div>
+        <div class="filters">
+          <select id="filter-symbol"><option value="">Todos los pares</option></select>
+          <select id="filter-status">
+            <option value="">Todos los estados</option>
+            <option value="pending">pending</option>
+            <option value="taken">taken</option>
+            <option value="win">win</option>
+            <option value="loss">loss</option>
+            <option value="skipped">skipped</option>
+            <option value="expired">expired</option>
+          </select>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Par</th>
+              <th>Señal</th>
+              <th>Confianza</th>
+              <th>Entrada</th>
+              <th>SL</th>
+              <th>TP</th>
+              <th>Estado</th>
+              <th>PnL</th>
+            </tr>
+          </thead>
+          <tbody id="signals-body">
+            <tr><td colspan="9" class="muted">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <header class="card-head">
+        <div>
+          <h2>Ventanas walk-forward</h2>
+          <p>Si el win rate salta mucho entre ventanas, el modelo no es estable entre regímenes.</p>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Par</th>
+              <th>Ventana</th>
+              <th>Trades</th>
+              <th>Wins</th>
+              <th>Losses</th>
+              <th>Win rate</th>
+              <th>Barras sin trade</th>
+            </tr>
+          </thead>
+          <tbody id="windows-body">
+            <tr><td colspan="7" class="muted">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Solo lectura. Modo auto deshabilitado a propósito. Datos: data/trading_bot.db
+  </footer>
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

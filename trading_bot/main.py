@@ -20,6 +20,7 @@ from src.features.indicators import build_features
 from src.signals.model import predict_signal, FEATURE_COLS
 from src.risk.risk_manager import RiskManager, RiskState
 from src.alerts.telegram_alert import TelegramAlerter, send_alert_sync
+from src.storage.db import TradingDB
 
 load_dotenv()
 
@@ -30,18 +31,42 @@ def load_config(path: str = "config/config.yaml") -> dict:
 
 
 def run_once(cfg: dict, mt5_conn: MT5Connector, model, risk_mgr: RiskManager,
-             alerter: TelegramAlerter, initial_balance: float):
+             alerter: TelegramAlerter, initial_balance: float, db: TradingDB):
     account = mt5_conn.get_account_info()
+    trade_date = date.today()
+    try:
+        opening = mt5_conn.get_day_opening_balance()
+        db.upsert_daily_open(trade_date.isoformat(), opening)
+    except RuntimeError as exc:
+        stored = db.get_daily_open(trade_date.isoformat())
+        if stored is None:
+            raise RuntimeError(
+                f"No se pudo obtener el balance de apertura del día: {exc}"
+            ) from exc
+        opening = stored
+        print(f"MT5 no dio el open del día; se usa el guardado ({opening})")
+
+    positions = mt5_conn.get_open_positions()
 
     state = RiskState(
-        starting_balance_today=account["balance"],  # TODO: guarda el balance de apertura del día, no el actual
+        starting_balance_today=opening,
         current_equity=account["equity"],
         initial_balance=initial_balance,
-        open_positions=0,  # TODO: consulta posiciones abiertas reales vía mt5.positions_get()
-        trade_date=date.today(),
+        open_positions=len(positions),
+        trade_date=trade_date,
     )
 
     allowed, reason = risk_mgr.can_open_trade(state)
+    db.log_risk_snapshot(
+        starting_balance_today=state.starting_balance_today,
+        current_equity=state.current_equity,
+        initial_balance=state.initial_balance,
+        open_positions=state.open_positions,
+        daily_loss_pct=risk_mgr.daily_loss_pct(state),
+        total_drawdown_pct=risk_mgr.total_drawdown_pct(state),
+        can_trade=allowed,
+        reason=reason,
+    )
     if not allowed:
         print(reason)
         if cfg["alerts"]["telegram_enabled"]:
@@ -61,10 +86,27 @@ def run_once(cfg: dict, mt5_conn: MT5Connector, model, risk_mgr: RiskManager,
             continue
 
         live = mt5_conn.get_live_price(symbol)
+        if live is None:
+            print(f"[{symbol}] sin precio en vivo, se omite")
+            continue
         entry = live["ask"] if result["signal"] == "BUY" else live["bid"]
         atr = last_row["atr"]
         sl = entry - atr * 1.5 if result["signal"] == "BUY" else entry + atr * 1.5
         tp = entry + atr * 3 if result["signal"] == "BUY" else entry - atr * 3
+
+        t = last_row["time"] if "time" in last_row.index else None
+        bar_time = t.isoformat() if hasattr(t, "isoformat") else (str(t) if t is not None else None)
+        db.log_signal(
+            symbol=symbol,
+            timeframe=cfg["timeframes"]["primary"],
+            signal=result["signal"],
+            confidence=result["confidence"],
+            entry=round(entry, 5),
+            sl=round(sl, 5),
+            tp=round(tp, 5),
+            atr=float(atr),
+            bar_time=bar_time,
+        )
 
         print(f"[{symbol}] Señal: {result['signal']} (confianza {result['confidence']:.0%})")
 
@@ -103,14 +145,16 @@ def main():
     )
 
     initial_balance = float(os.getenv("ACCOUNT_INITIAL_BALANCE", 0))
+    db = TradingDB()
 
     try:
         while True:
-            run_once(cfg, mt5_conn, model, risk_mgr, alerter, initial_balance)
+            run_once(cfg, mt5_conn, model, risk_mgr, alerter, initial_balance, db)
             time.sleep(3600)  # H1: revisa cada hora al cierre de vela
     except KeyboardInterrupt:
         print("Detenido manualmente.")
     finally:
+        db.close()
         mt5_conn.disconnect()
 
 

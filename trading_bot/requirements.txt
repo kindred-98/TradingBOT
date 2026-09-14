@@ -9,3 +9,5 @@ python-telegram-bot==21.1.1
 python-dotenv==1.0.1
 vectorbt==0.26.2
 PyYAML==6.0.1
+fastapi==0.115.12
+uvicorn==0.34.2
